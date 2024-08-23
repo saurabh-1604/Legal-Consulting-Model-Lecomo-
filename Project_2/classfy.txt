@@ -1,0 +1,62 @@
+To modify the code to allow multiple IPC sections as output for one case, you need to make changes in the data preprocessing step and in the output layer of the neural network model.
+
+Here's how you can modify the code:
+
+Data Preprocessing:
+
+Instead of mapping each case to a single IPC section, map each case to multiple IPC sections.
+You can represent the output labels as a multi-label classification problem, where each case can have multiple IPC sections associated with it.
+Model Output Layer:
+
+Modify the output layer of the neural network model to output probabilities for each IPC section.
+Since it's a multi-label classification problem, you can use the sigmoid activation function in the output layer.
+Adjust the loss function accordingly to handle multi-label classification.
+Here's the modified code:
+
+python
+Copy code
+import json
+import numpy as np
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dense
+
+# Load JSON data
+with open('modified_sections.json') as f:
+    data = json.load(f)
+
+# Extract texts and labels
+texts = [entry['case'] for entry in data]
+labels = [entry['IPC_Section'].split(', ') for entry in data]  # Split multiple IPC sections
+
+# Tokenize texts
+max_words = 1000
+tokenizer = Tokenizer(num_words=max_words, oov_token='<OOV>')
+tokenizer.fit_on_texts(texts)
+sequences = tokenizer.texts_to_sequences(texts)
+
+# Pad sequences
+maxlen = 100
+padded_sequences = pad_sequences(sequences, maxlen=maxlen, padding='post', truncating='post')
+
+# Convert labels to binary representation for multi-label classification
+label_dict = {label: i for i, label in enumerate(set([item for sublist in labels for item in sublist]))}
+labels_encoded = np.zeros((len(labels), len(label_dict)), dtype=np.int)
+for i, label_list in enumerate(labels):
+    for label in label_list:
+        labels_encoded[i, label_dict[label]] = 1
+
+# Define model
+model = Sequential([
+    Embedding(max_words, 32),
+    LSTM(64),
+    Dense(len(label_dict), activation='sigmoid')  # Use sigmoid for multi-label classification
+])
+
+# Compile model
+model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])  # Use binary cross-entropy for multi-label classification
+
+# Train model
+model.fit(padded_sequences, labels_encoded, epochs=10, validation_split=0.2)
+This modified code will allow the model to predict multiple IPC sections as output for each case. Ensure that your data is properly formatted to handle multiple IPC
